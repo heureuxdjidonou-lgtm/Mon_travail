@@ -1,0 +1,145 @@
+
+
+---
+title: "TP1"
+date: "2026-01-24"
+output:
+  pdf_document:
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+library(forecast)
+library(astsa)
+```
+\newpage
+
+
+# Exrecice 1
+
+## Question 1 
+L’équation est celle d’un processus AR($2$)
+
+```{r}
+AR2 <- arima.sim(list(ar=c(1.5,-0.75)), n=200); plot(AR2)
+```
+
+Ce processus est stationnaire car les racines $r_{1}$
+ et $\overline{r_1}$ du polynome associé $P(z)=0.75z^{2}-1.5z+1$ sont de module différent de 1 :
+
+```{r}
+D <- 1.5^2-4*0.75; r1<-(1.5+sqrt(-D)*1i)/(2*0.75) ; abs(r1)
+```
+## Question 2 
+```{r}
+#acf(AR2,10)
+#pacf(AR2,10)
+acf2(AR2,10)
+```
+## Question 3:
+
+```{r}
+ARMA21 <- arima.sim(list(ar = c(0.89, -0.5), ma = -0.23), n=1000) ; plot(ARMA21)
+```
+
+```{r}
+acf2(ARMA21,10)
+```
+```{r}
+auto.arima(ARMA21)
+```
+```{r}
+Res <- auto.arima(ARMA21)$residuals
+acf2(Res,10)
+```
+
+```{r}
+Box.test(Res)
+```
+Conclusion : Le test de Box-Pierce ne permet pas de rejeter l’hypothèse d’un bruit blanc. La modélisation est donc pertinente.
+
+# Exercice 2
+## Question 1
+```{r}
+plot(oil)
+```
+Ce chronogramme semble avoir une tendance : ça ne ressemble pas à une réalisation d’un processus stationnaire.
+
+## Question 2
+```{r}
+# Calcul des log-rendements 
+r.oil <- diff(log(oil))
+plot(r.oil)
+```
+Ce chronogramme ressemble plus à la réalisation d’un processus stationnaire que le précédent. La tendance a été lisée.
+
+## Question 3
+
+```{r}
+acf2(r.oil,20)
+```
+
+## Question 4
+
+```{r}
+# Modélisation avec un ARMA
+auto.arima(r.oil, stationary=TRUE, seasonal=FALSE)
+```
+
+```{r}
+# Etude des résidus de la modélisation
+ResOil <- auto.arima(r.oil, stationary=TRUE, seasonal=FALSE)$residuals
+acf2(ResOil) 
+```
+
+```{r}
+Box.test(ResOil)
+```
+Conclusion : une modélisation des log-rendements avec un ARMA(1,1) nous rend des résidus qui passent le test de blancheur de Box-Pierce. La modélisation est donc raisonnable.
+
+# Exrecice 3
+Voici une façon de coder l’algorithme.
+```{r}
+DLalgo <- function(x,p){
+    ## on nomme la fonction d'autocovariance empirique
+ gamma <- function(h){acf(x,h,plot=F,type="covariance")$acf[h+1]}
+ 
+  ## initiatilisation
+ k <- 1
+ kappa = gamma(1)/gamma(0)
+ sigma2 = gamma(0)*(1-kappa^2)
+ phi <- 1:p ; phi[1] <- kappa
+ 
+  ## algorithme
+ while (k <= p){
+   
+   ### calcul annexe de la somme
+   S = 0 
+   for (j in 1:k){ S <- S + phi[j] * gamma(k-j+1) }
+   
+   ### kappa 
+   kappa <- (gamma(k+1)-S)/sigma2
+   
+   ### phi
+   for (j in 1:k){ phi[j] <- phi[j] - kappa * phi[k-j+1] }
+   phi[k+1] <-kappa
+   
+   ### sigma2
+   sigma2 <- sigma2 * (1-kappa^2)
+   
+   ### on incremente la boucle
+  k <- k+1
+ }
+   ## resultats
+   Result = list(phi,sigma2)
+   return(Result)
+ }
+```
+*Test*
+
+On retrouve les paramètres du modèle AR(2) de la Exercice 1, question 1 :
+
+```{r}
+DLalgo(AR2,1)
+```
+
